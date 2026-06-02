@@ -197,6 +197,14 @@ function resolveGhPath() {
   return null;
 }
 
+function getDefaultBranch(repoPath) {
+  try {
+    return git(repoPath, "symbolic-ref", "--short", "refs/remotes/origin/HEAD").replace(/^origin\//, "");
+  } catch {
+    return "master";
+  }
+}
+
 function checkCiStatus(repoPath, skipCiGate) {
   if (skipCiGate) {
     return { skipped: true, status: "skipped" };
@@ -207,15 +215,17 @@ function checkCiStatus(repoPath, skipCiGate) {
     return { skipped: false, status: "ci_unavailable" };
   }
 
+  const defaultBranch = getDefaultBranch(repoPath);
+
   try {
     const output = execFileSync(
       ghPath,
-      ["run", "list", "--branch", "main", "--limit", "1", "--json", "conclusion,status,name"],
+      ["run", "list", "--branch", defaultBranch, "--limit", "1", "--json", "conclusion,status,name"],
       { encoding: "utf8", timeout: 30_000, cwd: repoPath },
     );
     const runs = JSON.parse(output);
     if (!runs.length) {
-      return { skipped: false, status: "no_ci_runs", detail: "No CI runs found for main" };
+      return { skipped: false, status: "no_ci_runs", detail: `No CI runs found for ${defaultBranch}` };
     }
     const run = runs[0];
     if (run.status !== "completed") {

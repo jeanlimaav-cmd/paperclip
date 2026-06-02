@@ -66,8 +66,8 @@ const __moduleDir = path.dirname(fileURLToPath(import.meta.url));
 
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
-function retryJitter(baseMs: number): number {
-  return Math.floor(Math.random() * baseMs * 0.2);
+function retryJitter(currentMs: number): number {
+  return Math.floor(Math.random() * currentMs * 0.2);
 }
 
 interface ClaudeExecutionInput {
@@ -988,9 +988,10 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
         stdout: currentAttempt.proc.stdout,
         stderr: currentAttempt.proc.stderr,
       });
+      const exponentialDelay = rateLimitBackoffBaseMs * (2 ** retryCount);
       const waitMs = retryNotBefore
         ? Math.max(0, retryNotBefore.getTime() - Date.now())
-        : Math.min(rateLimitBackoffBaseMs * (2 ** retryCount) + retryJitter(rateLimitBackoffBaseMs), rateLimitBackoffCeilingMs);
+        : Math.min(exponentialDelay + retryJitter(exponentialDelay), rateLimitBackoffCeilingMs);
 
       if (waitMs > rateLimitBackoffCeilingMs) break;
 
