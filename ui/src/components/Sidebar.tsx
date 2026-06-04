@@ -12,6 +12,15 @@ import {
   Repeat,
   GitBranch,
   Settings,
+  Package,
+  LayoutGrid,
+  Megaphone,
+  FlaskConical,
+  AtSign,
+  Mails,
+  HeartPulse,
+  Beaker,
+  ListTodo,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { NavLink } from "@/lib/router";
@@ -93,6 +102,17 @@ export function Sidebar() {
           />
         </div>
 
+        <SidebarSection label="AGNB">
+          <SidebarNavItem to="/rocket-inbox" label="Inbox" icon={Mails} />
+          <SidebarNavItem to="/campaigns" label="Campaigns" icon={Megaphone} />
+          <SidebarNavItem to="/experiments" label="Experiments" icon={Beaker} />
+          <SidebarNavItem to="/pipeline" label="Pipeline" icon={LayoutGrid} />
+          <SidebarNavItem to="/assets" label="Assets" icon={Package} />
+          <SidebarNavItem to="/competitors" label="Research" icon={FlaskConical} />
+          <SidebarNavItem to="/mentions" label="Mentions" icon={AtSign} />
+          <SidebarNavItem to="/backlog" label="Backlog" icon={ListTodo} />
+        </SidebarSection>
+
         <SidebarSection label="Work">
           <SidebarNavItem to="/issues" label="Issues" icon={CircleDot} />
           <SidebarNavItem to="/routines" label="Routines" icon={Repeat} />
@@ -124,6 +144,7 @@ export function Sidebar() {
           <SidebarNavItem to="/skills" label="Skills" icon={Boxes} />
           <SidebarNavItem to="/costs" label="Costs" icon={DollarSign} />
           <SidebarNavItem to="/activity" label="Activity" icon={History} />
+          <SidebarNavItem to="/agnb-health" label="Ops" icon={HeartPulse} />
           <SidebarNavItem to="/company/settings" label="Settings" icon={Settings} />
         </SidebarSection>
 

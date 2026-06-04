@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  BookOpen,
   LogOut,
   type LucideIcon,
   Moon,
@@ -21,7 +20,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "../lib/utils";
 
 const PROFILE_SETTINGS_PATH = "/instance/settings/profile";
-const DOCS_URL = "https://docs.paperclip.ing/";
+// const DOCS_URL = "https://docs.paperclip.ing/"; // unused — Documentation menu item hidden
 
 interface SidebarAccountMenuProps {
   deploymentMode?: DeploymentMode;
@@ -180,7 +179,7 @@ export function SidebarAccountMenu({
                 </div>
                 <p className="truncate text-sm text-muted-foreground">{secondaryLabel}</p>
                 {version ? (
-                  <p className="mt-1 text-xs text-muted-foreground">Paperclip v{version}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">All Gas No Brakes v{version}</p>
                 ) : null}
               </div>
             </div>
@@ -207,14 +206,16 @@ export function SidebarAccountMenu({
                 href={instanceSettingsTarget}
                 onClick={closeNavigationChrome}
               />
+              {/* Documentation — hidden for AGNB
               <MenuAction
                 label="Documentation"
-                description="Open Paperclip docs in a new tab."
+                description="Open the docs in a new tab."
                 icon={BookOpen}
                 href={DOCS_URL}
                 external
                 onClick={() => setOpen(false)}
               />
+              */}
               <MenuAction
                 label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
                 description="Toggle the app appearance."
