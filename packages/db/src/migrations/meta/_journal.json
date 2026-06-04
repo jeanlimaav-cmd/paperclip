@@ -666,6 +666,13 @@
       "when": 1780533900000,
       "tag": "0094_backfill_archived_company_agent_pauses",
       "breakpoints": true
+    },
+    {
+      "idx": 95,
+      "version": "7",
+      "when": 1780562914914,
+      "tag": "0095_plugin_company_id_tenant_isolation",
+      "breakpoints": true
     }
   ]
 }
