@@ -49,7 +49,7 @@ import {
   workspaceOperationService,
 } from "../services/index.js";
 import { conflict, forbidden, notFound, unprocessable } from "../errors.js";
-import { assertBoard, assertCompanyAccess, assertInstanceAdmin, getActorInfo } from "./authz.js";
+import { assertBoard, assertCompanyAccess, assertInstanceAdmin, getActorInfo, hasCompanyAccess } from "./authz.js";
 import {
   assertNoAgentHostWorkspaceCommandMutation,
   collectAgentAdapterWorkspaceCommandPaths,
@@ -586,7 +586,7 @@ export function agentRoutes(
 
   async function getAccessibleAgent(req: Request, res: Response, id: string) {
     const agent = await svc.getById(id);
-    if (!agent) {
+    if (!agent || !hasCompanyAccess(req, agent.companyId)) {
       res.status(404).json({ error: "Agent not found" });
       return null;
     }
@@ -1791,11 +1791,10 @@ export function agentRoutes(
   router.get("/agents/:id", async (req, res) => {
     const id = req.params.id as string;
     const agent = await svc.getById(id);
-    if (!agent) {
+    if (!agent || !hasCompanyAccess(req, agent.companyId)) {
       res.status(404).json({ error: "Agent not found" });
       return;
     }
-    assertCompanyAccess(req, agent.companyId);
     const isSelf = req.actor.type === "agent" && req.actor.agentId === id;
     const canReadSensitiveDetail = isSelf
       ? true
@@ -1886,7 +1885,7 @@ export function agentRoutes(
     assertBoard(req);
     const id = req.params.id as string;
     const agent = await svc.getById(id);
-    if (!agent) {
+    if (!agent || !hasCompanyAccess(req, agent.companyId)) {
       res.status(404).json({ error: "Agent not found" });
       return;
     }
@@ -1901,7 +1900,7 @@ export function agentRoutes(
     assertBoard(req);
     const id = req.params.id as string;
     const agent = await svc.getById(id);
-    if (!agent) {
+    if (!agent || !hasCompanyAccess(req, agent.companyId)) {
       res.status(404).json({ error: "Agent not found" });
       return;
     }
@@ -1921,7 +1920,7 @@ export function agentRoutes(
     assertBoard(req);
     const id = req.params.id as string;
     const agent = await svc.getById(id);
-    if (!agent) {
+    if (!agent || !hasCompanyAccess(req, agent.companyId)) {
       res.status(404).json({ error: "Agent not found" });
       return;
     }
@@ -2243,7 +2242,7 @@ export function agentRoutes(
   router.patch("/agents/:id/permissions", validate(updateAgentPermissionsSchema), async (req, res) => {
     const id = req.params.id as string;
     const existing = await svc.getById(id);
-    if (!existing) {
+    if (!existing || !hasCompanyAccess(req, existing.companyId)) {
       res.status(404).json({ error: "Agent not found" });
       return;
     }
@@ -2919,7 +2918,7 @@ export function agentRoutes(
   ): Promise<void> => {
     const id = req.params.id as string;
     const agent = await svc.getById(id);
-    if (!agent) {
+    if (!agent || !hasCompanyAccess(req, agent.companyId)) {
       res.status(404).json({ error: "Agent not found" });
       return;
     }
@@ -2987,7 +2986,7 @@ export function agentRoutes(
     // shape exactly.
     const id = req.params.id as string;
     const agent = await svc.getById(id);
-    if (!agent) {
+    if (!agent || !hasCompanyAccess(req, agent.companyId)) {
       res.status(404).json({ error: "Agent not found" });
       return;
     }
@@ -3059,7 +3058,7 @@ export function agentRoutes(
     assertBoard(req);
     const id = req.params.id as string;
     const agent = await svc.getById(id);
-    if (!agent) {
+    if (!agent || !hasCompanyAccess(req, agent.companyId)) {
       res.status(404).json({ error: "Agent not found" });
       return;
     }
@@ -3185,11 +3184,10 @@ export function agentRoutes(
   router.get("/heartbeat-runs/:runId", async (req, res) => {
     const runId = req.params.runId as string;
     const run = await heartbeat.getRun(runId);
-    if (!run) {
+    if (!run || !hasCompanyAccess(req, run.companyId)) {
       res.status(404).json({ error: "Heartbeat run not found" });
       return;
     }
-    assertCompanyAccess(req, run.companyId);
     const retryExhaustedReason = await heartbeat.getRetryExhaustedReason(runId);
     res.json(
       redactCurrentUserValue(
@@ -3203,9 +3201,11 @@ export function agentRoutes(
     assertBoard(req);
     const runId = req.params.runId as string;
     const existing = await heartbeat.getRun(runId);
-    if (existing) {
-      assertCompanyAccess(req, existing.companyId);
+    if (!existing || !hasCompanyAccess(req, existing.companyId)) {
+      res.status(404).json({ error: "Heartbeat run not found" });
+      return;
     }
+    assertCompanyAccess(req, existing.companyId);
     const run = await heartbeat.cancelRun(runId);
 
     if (run) {
@@ -3262,11 +3262,10 @@ export function agentRoutes(
   router.get("/heartbeat-runs/:runId/events", async (req, res) => {
     const runId = req.params.runId as string;
     const run = await heartbeat.getRun(runId);
-    if (!run) {
+    if (!run || !hasCompanyAccess(req, run.companyId)) {
       res.status(404).json({ error: "Heartbeat run not found" });
       return;
     }
-    assertCompanyAccess(req, run.companyId);
 
     const afterSeq = Number(req.query.afterSeq ?? 0);
     const limit = Number(req.query.limit ?? 200);
@@ -3284,11 +3283,10 @@ export function agentRoutes(
   router.get("/heartbeat-runs/:runId/log", async (req, res) => {
     const runId = req.params.runId as string;
     const run = await heartbeat.getRunLogAccess(runId);
-    if (!run) {
+    if (!run || !hasCompanyAccess(req, run.companyId)) {
       res.status(404).json({ error: "Heartbeat run not found" });
       return;
     }
-    assertCompanyAccess(req, run.companyId);
 
     const offset = Number(req.query.offset ?? 0);
     const limitBytes = readRunLogLimitBytes(req.query.limitBytes);
@@ -3304,11 +3302,10 @@ export function agentRoutes(
   router.get("/heartbeat-runs/:runId/workspace-operations", async (req, res) => {
     const runId = req.params.runId as string;
     const run = await heartbeat.getRun(runId);
-    if (!run) {
+    if (!run || !hasCompanyAccess(req, run.companyId)) {
       res.status(404).json({ error: "Heartbeat run not found" });
       return;
     }
-    assertCompanyAccess(req, run.companyId);
 
     const context = asRecord(run.contextSnapshot);
     const executionWorkspaceId = asNonEmptyString(context?.executionWorkspaceId);
@@ -3319,11 +3316,10 @@ export function agentRoutes(
   router.get("/workspace-operations/:operationId/log", async (req, res) => {
     const operationId = req.params.operationId as string;
     const operation = await workspaceOperations.getById(operationId);
-    if (!operation) {
+    if (!operation || !hasCompanyAccess(req, operation.companyId)) {
       res.status(404).json({ error: "Workspace operation not found" });
       return;
     }
-    assertCompanyAccess(req, operation.companyId);
 
     const offset = Number(req.query.offset ?? 0);
     const limitBytes = readRunLogLimitBytes(req.query.limitBytes);
@@ -3341,11 +3337,10 @@ export function agentRoutes(
     const issueSvc = issueService(db);
     const identifier = normalizeIssueIdentifier(rawId);
     const issue = identifier ? await issueSvc.getByIdentifier(identifier) : await issueSvc.getById(rawId);
-    if (!issue) {
+    if (!issue || !hasCompanyAccess(req, issue.companyId)) {
       res.status(404).json({ error: "Issue not found" });
       return;
     }
-    assertCompanyAccess(req, issue.companyId);
 
     const liveRuns = await db
       .select({
@@ -3395,11 +3390,10 @@ export function agentRoutes(
     const issueSvc = issueService(db);
     const identifier = normalizeIssueIdentifier(rawId);
     const issue = identifier ? await issueSvc.getByIdentifier(identifier) : await issueSvc.getById(rawId);
-    if (!issue) {
+    if (!issue || !hasCompanyAccess(req, issue.companyId)) {
       res.status(404).json({ error: "Issue not found" });
       return;
     }
-    assertCompanyAccess(req, issue.companyId);
 
     let run = issue.executionRunId ? await heartbeat.getRunIssueSummary(issue.executionRunId) : null;
     if (

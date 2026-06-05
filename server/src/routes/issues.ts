@@ -84,7 +84,7 @@ import {
 } from "../services/index.js";
 import { logger } from "../middleware/logger.js";
 import { conflict, forbidden, HttpError, notFound, unauthorized, unprocessable } from "../errors.js";
-import { assertBoard, assertCompanyAccess, getActorInfo } from "./authz.js";
+import { assertBoard, assertCompanyAccess, getActorInfo, hasCompanyAccess } from "./authz.js";
 import {
   assertNoAgentHostWorkspaceCommandMutation,
   collectIssueWorkspaceCommandPaths,
@@ -2160,7 +2160,7 @@ export function issueRoutes(
   router.delete("/labels/:labelId", async (req, res) => {
     const labelId = req.params.labelId as string;
     const existing = await svc.getLabelById(labelId);
-    if (!existing) {
+    if (!existing || !hasCompanyAccess(req, existing.companyId)) {
       res.status(404).json({ error: "Label not found" });
       return;
     }
@@ -2188,11 +2188,10 @@ export function issueRoutes(
   router.get("/issues/:id/heartbeat-context", async (req, res) => {
     const id = req.params.id as string;
     const issue = await svc.getById(id);
-    if (!issue) {
+    if (!issue || !hasCompanyAccess(req, issue.companyId)) {
       res.status(404).json({ error: "Issue not found" });
       return;
     }
-    assertCompanyAccess(req, issue.companyId);
 
     const wakeCommentId =
       typeof req.query.wakeCommentId === "string" && req.query.wakeCommentId.trim().length > 0
@@ -2324,11 +2323,10 @@ export function issueRoutes(
   router.get("/issues/:id", async (req, res) => {
     const id = req.params.id as string;
     const issue = await svc.getById(id);
-    if (!issue) {
+    if (!issue || !hasCompanyAccess(req, issue.companyId)) {
       res.status(404).json({ error: "Issue not found" });
       return;
     }
-    assertCompanyAccess(req, issue.companyId);
     const [
       { project, goal },
       ancestors,
@@ -2589,11 +2587,10 @@ export function issueRoutes(
   router.get("/issues/:id/work-products", async (req, res) => {
     const id = req.params.id as string;
     const issue = await svc.getById(id);
-    if (!issue) {
+    if (!issue || !hasCompanyAccess(req, issue.companyId)) {
       res.status(404).json({ error: "Issue not found" });
       return;
     }
-    assertCompanyAccess(req, issue.companyId);
     const workProducts = await workProductsSvc.listForIssue(issue.id);
     res.json(workProducts);
   });
@@ -2601,11 +2598,10 @@ export function issueRoutes(
   router.get("/issues/:id/documents", async (req, res) => {
     const id = req.params.id as string;
     const issue = await svc.getById(id);
-    if (!issue) {
+    if (!issue || !hasCompanyAccess(req, issue.companyId)) {
       res.status(404).json({ error: "Issue not found" });
       return;
     }
-    assertCompanyAccess(req, issue.companyId);
     const docs = await documentsSvc.listIssueDocuments(issue.id, {
       includeSystem: req.query.includeSystem === "true",
     });
@@ -2615,11 +2611,10 @@ export function issueRoutes(
   router.get("/issues/:id/documents/:key", async (req, res) => {
     const id = req.params.id as string;
     const issue = await svc.getById(id);
-    if (!issue) {
+    if (!issue || !hasCompanyAccess(req, issue.companyId)) {
       res.status(404).json({ error: "Issue not found" });
       return;
     }
-    assertCompanyAccess(req, issue.companyId);
     const keyParsed = issueDocumentKeySchema.safeParse(String(req.params.key ?? "").trim().toLowerCase());
     if (!keyParsed.success) {
       res.status(400).json({ error: "Invalid document key", details: keyParsed.error.issues });
@@ -2866,7 +2861,7 @@ export function issueRoutes(
   router.put("/issues/:id/documents/:key", validate(upsertIssueDocumentSchema), async (req, res) => {
     const id = req.params.id as string;
     const issue = await svc.getById(id);
-    if (!issue) {
+    if (!issue || !hasCompanyAccess(req, issue.companyId)) {
       res.status(404).json({ error: "Issue not found" });
       return;
     }
@@ -3082,11 +3077,10 @@ export function issueRoutes(
   router.get("/issues/:id/documents/:key/revisions", async (req, res) => {
     const id = req.params.id as string;
     const issue = await svc.getById(id);
-    if (!issue) {
+    if (!issue || !hasCompanyAccess(req, issue.companyId)) {
       res.status(404).json({ error: "Issue not found" });
       return;
     }
-    assertCompanyAccess(req, issue.companyId);
     const keyParsed = issueDocumentKeySchema.safeParse(String(req.params.key ?? "").trim().toLowerCase());
     if (!keyParsed.success) {
       res.status(400).json({ error: "Invalid document key", details: keyParsed.error.issues });
@@ -3103,7 +3097,7 @@ export function issueRoutes(
       const id = req.params.id as string;
       const revisionId = req.params.revisionId as string;
       const issue = await svc.getById(id);
-      if (!issue) {
+      if (!issue || !hasCompanyAccess(req, issue.companyId)) {
         res.status(404).json({ error: "Issue not found" });
         return;
       }
@@ -3218,7 +3212,7 @@ export function issueRoutes(
   router.delete("/issues/:id/documents/:key", async (req, res) => {
     const id = req.params.id as string;
     const issue = await svc.getById(id);
-    if (!issue) {
+    if (!issue || !hasCompanyAccess(req, issue.companyId)) {
       res.status(404).json({ error: "Issue not found" });
       return;
     }
@@ -3293,7 +3287,7 @@ export function issueRoutes(
   router.post("/issues/:id/work-products", validate(createIssueWorkProductSchema), async (req, res) => {
     const id = req.params.id as string;
     const issue = await svc.getById(id);
-    if (!issue) {
+    if (!issue || !hasCompanyAccess(req, issue.companyId)) {
       res.status(404).json({ error: "Issue not found" });
       return;
     }
@@ -3339,7 +3333,7 @@ export function issueRoutes(
   router.patch("/work-products/:id", validate(updateIssueWorkProductSchema), async (req, res) => {
     const id = req.params.id as string;
     const existing = await workProductsSvc.getById(id);
-    if (!existing) {
+    if (!existing || !hasCompanyAccess(req, existing.companyId)) {
       res.status(404).json({ error: "Work product not found" });
       return;
     }
@@ -3392,7 +3386,7 @@ export function issueRoutes(
   router.delete("/work-products/:id", async (req, res) => {
     const id = req.params.id as string;
     const existing = await workProductsSvc.getById(id);
-    if (!existing) {
+    if (!existing || !hasCompanyAccess(req, existing.companyId)) {
       res.status(404).json({ error: "Work product not found" });
       return;
     }
@@ -3433,7 +3427,7 @@ export function issueRoutes(
   router.post("/issues/:id/read", async (req, res) => {
     const id = req.params.id as string;
     const issue = await svc.getById(id);
-    if (!issue) {
+    if (!issue || !hasCompanyAccess(req, issue.companyId)) {
       res.status(404).json({ error: "Issue not found" });
       return;
     }
@@ -3465,7 +3459,7 @@ export function issueRoutes(
   router.delete("/issues/:id/read", async (req, res) => {
     const id = req.params.id as string;
     const issue = await svc.getById(id);
-    if (!issue) {
+    if (!issue || !hasCompanyAccess(req, issue.companyId)) {
       res.status(404).json({ error: "Issue not found" });
       return;
     }
@@ -3497,7 +3491,7 @@ export function issueRoutes(
   router.post("/issues/:id/inbox-archive", async (req, res) => {
     const id = req.params.id as string;
     const issue = await svc.getById(id);
-    if (!issue) {
+    if (!issue || !hasCompanyAccess(req, issue.companyId)) {
       res.status(404).json({ error: "Issue not found" });
       return;
     }
@@ -3529,7 +3523,7 @@ export function issueRoutes(
   router.delete("/issues/:id/inbox-archive", async (req, res) => {
     const id = req.params.id as string;
     const issue = await svc.getById(id);
-    if (!issue) {
+    if (!issue || !hasCompanyAccess(req, issue.companyId)) {
       res.status(404).json({ error: "Issue not found" });
       return;
     }
@@ -3561,11 +3555,10 @@ export function issueRoutes(
   router.get("/issues/:id/approvals", async (req, res) => {
     const id = req.params.id as string;
     const issue = await svc.getById(id);
-    if (!issue) {
+    if (!issue || !hasCompanyAccess(req, issue.companyId)) {
       res.status(404).json({ error: "Issue not found" });
       return;
     }
-    assertCompanyAccess(req, issue.companyId);
     const approvals = await issueApprovalsSvc.listApprovalsForIssue(id);
     res.json(approvals);
   });
@@ -4032,7 +4025,7 @@ export function issueRoutes(
   router.patch("/issues/:id", validate(updateIssueRouteSchema), async (req, res) => {
     const id = req.params.id as string;
     const existing = await svc.getById(id);
-    if (!existing) {
+    if (!existing || !hasCompanyAccess(req, existing.companyId)) {
       res.status(404).json({ error: "Issue not found" });
       return;
     }
@@ -5005,7 +4998,7 @@ export function issueRoutes(
   router.delete("/issues/:id", async (req, res) => {
     const id = req.params.id as string;
     const existing = await svc.getById(id);
-    if (!existing) {
+    if (!existing || !hasCompanyAccess(req, existing.companyId)) {
       res.status(404).json({ error: "Issue not found" });
       return;
     }
@@ -5045,7 +5038,7 @@ export function issueRoutes(
   router.post("/issues/:id/checkout", validate(checkoutIssueSchema), async (req, res) => {
     const id = req.params.id as string;
     const issue = await svc.getById(id);
-    if (!issue) {
+    if (!issue || !hasCompanyAccess(req, issue.companyId)) {
       res.status(404).json({ error: "Issue not found" });
       return;
     }
@@ -5129,7 +5122,7 @@ export function issueRoutes(
   router.post("/issues/:id/release", async (req, res) => {
     const id = req.params.id as string;
     const existing = await svc.getById(id);
-    if (!existing) {
+    if (!existing || !hasCompanyAccess(req, existing.companyId)) {
       res.status(404).json({ error: "Issue not found" });
       return;
     }
@@ -5212,11 +5205,10 @@ export function issueRoutes(
   router.get("/issues/:id/comments", async (req, res) => {
     const id = req.params.id as string;
     const issue = await svc.getById(id);
-    if (!issue) {
+    if (!issue || !hasCompanyAccess(req, issue.companyId)) {
       res.status(404).json({ error: "Issue not found" });
       return;
     }
-    assertCompanyAccess(req, issue.companyId);
     const afterCommentId =
       typeof req.query.after === "string" && req.query.after.trim().length > 0
         ? req.query.after.trim()
@@ -5580,11 +5572,10 @@ export function issueRoutes(
     const id = req.params.id as string;
     const commentId = req.params.commentId as string;
     const issue = await svc.getById(id);
-    if (!issue) {
+    if (!issue || !hasCompanyAccess(req, issue.companyId)) {
       res.status(404).json({ error: "Issue not found" });
       return;
     }
-    assertCompanyAccess(req, issue.companyId);
     const comment = await svc.getComment(commentId);
     if (!comment || comment.issueId !== id) {
       res.status(404).json({ error: "Comment not found" });
@@ -5597,7 +5588,7 @@ export function issueRoutes(
     const id = req.params.id as string;
     const commentId = req.params.commentId as string;
     const issue = await svc.getById(id);
-    if (!issue) {
+    if (!issue || !hasCompanyAccess(req, issue.companyId)) {
       res.status(404).json({ error: "Issue not found" });
       return;
     }
@@ -5662,11 +5653,10 @@ export function issueRoutes(
   router.get("/issues/:id/feedback-votes", async (req, res) => {
     const id = req.params.id as string;
     const issue = await svc.getById(id);
-    if (!issue) {
+    if (!issue || !hasCompanyAccess(req, issue.companyId)) {
       res.status(404).json({ error: "Issue not found" });
       return;
     }
-    assertCompanyAccess(req, issue.companyId);
     if (req.actor.type !== "board") {
       res.status(403).json({ error: "Only board users can view feedback votes" });
       return;
@@ -5679,11 +5669,10 @@ export function issueRoutes(
   router.get("/issues/:id/feedback-traces", async (req, res) => {
     const id = req.params.id as string;
     const issue = await svc.getById(id);
-    if (!issue) {
+    if (!issue || !hasCompanyAccess(req, issue.companyId)) {
       res.status(404).json({ error: "Issue not found" });
       return;
     }
-    assertCompanyAccess(req, issue.companyId);
     if (req.actor.type !== "board") {
       res.status(403).json({ error: "Only board users can view feedback traces" });
       return;
@@ -5742,7 +5731,7 @@ export function issueRoutes(
   router.post("/issues/:id/comments", validate(addIssueCommentSchema), async (req, res) => {
     const id = req.params.id as string;
     const issue = await svc.getById(id);
-    if (!issue) {
+    if (!issue || !hasCompanyAccess(req, issue.companyId)) {
       res.status(404).json({ error: "Issue not found" });
       return;
     }
@@ -6061,7 +6050,7 @@ export function issueRoutes(
   router.post("/issues/:id/feedback-votes", validate(upsertIssueFeedbackVoteSchema), async (req, res) => {
     const id = req.params.id as string;
     const issue = await svc.getById(id);
-    if (!issue) {
+    if (!issue || !hasCompanyAccess(req, issue.companyId)) {
       res.status(404).json({ error: "Issue not found" });
       return;
     }
@@ -6160,11 +6149,10 @@ export function issueRoutes(
   router.get("/issues/:id/attachments", async (req, res) => {
     const issueId = req.params.id as string;
     const issue = await svc.getById(issueId);
-    if (!issue) {
+    if (!issue || !hasCompanyAccess(req, issue.companyId)) {
       res.status(404).json({ error: "Issue not found" });
       return;
     }
-    assertCompanyAccess(req, issue.companyId);
     const attachments = await svc.listAttachments(issueId);
     res.json(attachments.map(withContentPath));
   });
@@ -6268,11 +6256,10 @@ export function issueRoutes(
   router.get("/attachments/:attachmentId/content", async (req, res, next) => {
     const attachmentId = req.params.attachmentId as string;
     const attachment = await svc.getAttachmentById(attachmentId);
-    if (!attachment) {
+    if (!attachment || !hasCompanyAccess(req, attachment.companyId)) {
       res.status(404).json({ error: "Attachment not found" });
       return;
     }
-    assertCompanyAccess(req, attachment.companyId);
 
     const contentLength = attachment.byteSize;
     const range = parseAttachmentRangeHeader(
@@ -6327,7 +6314,7 @@ export function issueRoutes(
   router.delete("/attachments/:attachmentId", async (req, res) => {
     const attachmentId = req.params.attachmentId as string;
     const attachment = await svc.getAttachmentById(attachmentId);
-    if (!attachment) {
+    if (!attachment || !hasCompanyAccess(req, attachment.companyId)) {
       res.status(404).json({ error: "Attachment not found" });
       return;
     }
