@@ -122,6 +122,7 @@ import { workspaceOperationService } from "./workspace-operations.js";
 import { isProcessGroupAlive, terminateLocalService } from "./local-service-supervisor.js";
 import {
   buildExecutionWorkspaceAdapterConfig,
+  defaultProjectlessIssueExecutionWorkspacePolicy,
   gateProjectExecutionWorkspacePolicy,
   issueExecutionWorkspaceModeForPersistedWorkspace,
   parseIssueExecutionWorkspaceSettings,
@@ -3817,7 +3818,7 @@ export function heartbeatService(db: Db, options: HeartbeatServiceOptions = {}) 
     agent: typeof agents.$inferSelect,
     context: Record<string, unknown>,
     previousSessionParams: Record<string, unknown> | null,
-    opts?: { useProjectWorkspace?: boolean | null },
+    opts?: { useProjectWorkspace?: boolean | null; allowConfiguredCwd?: boolean | null },
   ): Promise<ResolvedWorkspaceForRun> {
     const issueId = readNonEmptyString(context.issueId) ?? readNonEmptyString(context.taskId);
     const contextProjectId = readNonEmptyString(context.projectId);
@@ -3983,6 +3984,29 @@ export function heartbeatService(db: Db, options: HeartbeatServiceOptions = {}) 
           workspaceId: readNonEmptyString(previousSessionParams?.workspaceId),
           repoUrl: readNonEmptyString(previousSessionParams?.repoUrl),
           repoRef: readNonEmptyString(previousSessionParams?.repoRef),
+          workspaceHints,
+          warnings: [],
+        };
+      }
+    }
+
+    const configuredCwd = issueId && opts?.allowConfiguredCwd === true
+      ? readNonEmptyString(parseObject(agent.adapterConfig).cwd)
+      : null;
+    const configuredCwdLooksUnsafe = isUnsafeSessionWorkspaceCwd(configuredCwd);
+    if (configuredCwd && !configuredCwdLooksUnsafe) {
+      const configuredCwdExists = await fs
+        .stat(configuredCwd)
+        .then((stats) => stats.isDirectory())
+        .catch(() => false);
+      if (configuredCwdExists) {
+        return {
+          cwd: configuredCwd,
+          source: "task_session" as const,
+          projectId: resolvedProjectId,
+          workspaceId: null,
+          repoUrl: null,
+          repoRef: null,
           workspaceHints,
           warnings: [],
         };
@@ -7322,10 +7346,19 @@ export function heartbeatService(db: Db, options: HeartbeatServiceOptions = {}) 
       delete context.acceptedPlanWakeRouting;
     }
     const routineEnvContext = await getRoutineEnvForExecutionIssue(agent.companyId, issueContext);
-    const projectExecutionWorkspacePolicy = gateProjectExecutionWorkspacePolicy(
+    const configuredProjectExecutionWorkspacePolicy = gateProjectExecutionWorkspacePolicy(
       parseProjectExecutionWorkspacePolicy(projectContext?.executionWorkspacePolicy),
       isolatedWorkspacesEnabled,
     );
+    const projectlessIssueExecutionWorkspacePolicy = defaultProjectlessIssueExecutionWorkspacePolicy({
+      issueId: issueContext?.id ?? null,
+      projectId: executionProjectId ?? null,
+      isolatedWorkspacesEnabled,
+      projectPolicy: configuredProjectExecutionWorkspacePolicy,
+      issueSettings: issueExecutionWorkspaceSettings,
+    });
+    const projectExecutionWorkspacePolicy =
+      configuredProjectExecutionWorkspacePolicy ?? projectlessIssueExecutionWorkspacePolicy;
     const taskSession = taskKey
       ? await getTaskSession(agent.companyId, agent.id, agent.adapterType, taskKey)
       : null;
@@ -7360,7 +7393,12 @@ export function heartbeatService(db: Db, options: HeartbeatServiceOptions = {}) 
       agent,
       context,
       previousSessionParams,
-      { useProjectWorkspace: requestedExecutionWorkspaceMode !== "agent_default" },
+      {
+        useProjectWorkspace: requestedExecutionWorkspaceMode !== "agent_default",
+        allowConfiguredCwd:
+          requestedExecutionWorkspaceMode === "isolated_workspace" &&
+          projectExecutionWorkspacePolicy?.workspaceStrategy?.type === "git_worktree",
+      },
     );
     const issueRef = issueContext
       ? {
