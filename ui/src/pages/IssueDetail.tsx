@@ -649,7 +649,10 @@ type IssueDetailChatTabProps = {
   feedbackDataSharingPreference: "allowed" | "not_allowed" | "prompt";
   feedbackTermsUrl: string | null;
   agentMap: Map<string, Agent>;
-  currentUserId: string | null;
+  // `undefined` means the session query is still resolving; chat-bubble
+  // alignment uses this to avoid flickering the viewer's own messages to
+  // the wrong side before the session lands.
+  currentUserId: string | null | undefined;
   userLabelMap: ReadonlyMap<string, string> | null;
   userProfileMap: ReadonlyMap<string, import("../lib/company-members").CompanyUserProfile> | null;
   draftKey: string;
@@ -1436,7 +1439,13 @@ export function IssueDetail() {
     queryFn: () => projectsApi.list(selectedCompanyId!),
     enabled: !!selectedCompanyId,
   });
-  const currentUserId = session?.user?.id ?? session?.session?.userId ?? null;
+  // While the session query is loading, pass `undefined` so chat-bubble
+  // alignment can hold an optimistic "this is the viewer" assumption and
+  // not flicker the viewer's own messages to the wrong side. After the
+  // query resolves, fall back to `null` for genuinely anonymous sessions.
+  const currentUserId = session === undefined
+    ? undefined
+    : (session?.user?.id ?? session?.session?.userId ?? null);
   const { data: boardAccess } = useQuery({
     queryKey: queryKeys.access.currentBoardAccess,
     queryFn: () => accessApi.getCurrentBoardAccess(),
@@ -2061,7 +2070,7 @@ export function IssueDetail() {
             companyId: issue.companyId,
             issueId: issue.id,
             body,
-            authorUserId: currentUserId,
+            authorUserId: currentUserId ?? null,
             clientStatus: queuedComment ? "queued" : "pending",
             queueTargetRunId: queuedComment?.id ?? null,
           })
@@ -2287,7 +2296,7 @@ export function IssueDetail() {
             companyId: issue.companyId,
             issueId: issue.id,
             body,
-            authorUserId: currentUserId,
+            authorUserId: currentUserId ?? null,
             clientStatus: queuedComment ? "queued" : "pending",
             queueTargetRunId: queuedComment?.id ?? null,
           })
@@ -2576,7 +2585,7 @@ export function IssueDetail() {
             vote: variables.vote,
             reason: variables.reason,
           },
-          currentUserId,
+          currentUserId ?? null,
         ),
       );
       return { previousVotes };
@@ -4018,7 +4027,7 @@ export function IssueDetail() {
               childIssues={childIssues}
               agentMap={agentMap}
               hasLiveRuns={hasLiveRuns}
-              currentUserId={currentUserId}
+              currentUserId={currentUserId ?? null}
               userProfileMap={userProfileMap}
               pendingApprovalAction={pendingApprovalAction}
               handoffFocusSignal={handoffFocusSignal}
