@@ -341,6 +341,7 @@ vi.mock("@/components/ui/sheet", () => ({
   Sheet: ({ children, open }: { children?: ReactNode; open?: boolean }) => (open ? <div>{children}</div> : null),
   SheetContent: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
   SheetHeader: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
+  SheetDescription: ({ children }: { children?: ReactNode }) => <p>{children}</p>,
   SheetTitle: ({ children }: { children?: ReactNode }) => <h2>{children}</h2>,
 }));
 

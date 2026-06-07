@@ -216,6 +216,19 @@ export type {
   WorkspaceOperationStatus,
 } from "./workspace-operation.js";
 export type {
+  WorkspaceFileContent,
+  WorkspaceFileContentEncoding,
+  WorkspaceFileListItem,
+  WorkspaceFileListMode,
+  WorkspaceFileListResponse,
+  WorkspaceFilePreviewKind,
+  WorkspaceFileRef,
+  WorkspaceFileResourceKind,
+  WorkspaceFileSelector,
+  WorkspaceFileWorkspaceKind,
+  ResolvedWorkspaceResource,
+} from "./workspace-file-resource.js";
+export type {
   IssueWorkProduct,
   IssueWorkProductType,
   IssueWorkProductProvider,

@@ -532,4 +532,5 @@ describe("MarkdownBody", () => {
 
     expect(html).toContain('href="/issues/ACME-1"');
   });
+
 });

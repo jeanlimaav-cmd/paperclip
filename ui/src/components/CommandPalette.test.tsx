@@ -1,11 +1,19 @@
 // @vitest-environment jsdom
 
-import { act } from "react";
 import type { KeyboardEventHandler, ReactNode } from "react";
+import { flushSync } from "react-dom";
 import { createRoot } from "react-dom/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CommandPalette } from "./CommandPalette";
+
+function act(callback: () => void | Promise<void>) {
+  let result: void | Promise<void> | undefined;
+  flushSync(() => {
+    result = callback();
+  });
+  return result;
+}
 
 const companyState = vi.hoisted(() => ({
   selectedCompanyId: "company-1",
@@ -52,6 +60,7 @@ const navigateState = vi.hoisted(() => ({
 
 vi.mock("@/lib/router", () => ({
   useNavigate: () => navigateState.navigate,
+  useLocation: () => ({ pathname: "/", search: "", hash: "" }),
 }));
 
 vi.mock("../api/issues", () => ({

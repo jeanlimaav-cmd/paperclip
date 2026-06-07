@@ -83,6 +83,9 @@ import { IssueRunLedger } from "../components/IssueRunLedger";
 import { IssueWorkspaceCard } from "../components/IssueWorkspaceCard";
 import type { MentionOption } from "../components/MarkdownEditor";
 import { ImageGalleryModal } from "../components/ImageGalleryModal";
+import { FileViewerProvider, useRequiredFileViewer } from "../context/FileViewerContext";
+import { FileViewerSheet } from "../components/FileViewerSheet";
+import { ArtifactFileChip } from "../components/ArtifactFileChip";
 import { ScrollToBottom } from "../components/ScrollToBottom";
 import { StatusIcon } from "../components/StatusIcon";
 import { PriorityIcon } from "../components/PriorityIcon";
@@ -128,6 +131,7 @@ import {
   Eye,
   EyeOff,
   Flag,
+  FileCode2,
   Hexagon,
   ListTree,
   MessageSquare,
@@ -160,6 +164,8 @@ import {
   type RequestConfirmationInteraction,
   type SuggestTasksInteraction,
   type IssueTreeControlMode,
+  type WorkspaceFileRef,
+  workspaceFileRefSchema,
 } from "@paperclipai/shared";
 
 type CommentReassignment = IssueCommentReassignment;
@@ -274,6 +280,15 @@ function readIssueRunStateFromCache(queryClient: QueryClient, issueId: string) {
 function asRecord(value: unknown): Record<string, unknown> | null {
   if (typeof value !== "object" || value === null || Array.isArray(value)) return null;
   return value as Record<string, unknown>;
+}
+
+function extractWorkspaceFileRefFromWorkProduct(
+  workProduct: { metadata: Record<string, unknown> | null },
+): WorkspaceFileRef | null {
+  const metadata = asRecord(workProduct.metadata);
+  if (!metadata) return null;
+  const parsed = workspaceFileRefSchema.safeParse(metadata.resourceRef);
+  return parsed.success ? parsed.data : null;
 }
 
 function usageNumber(usage: Record<string, unknown> | null, ...keys: string[]) {
@@ -1251,6 +1266,7 @@ export function IssueDetail() {
   const [moreOpen, setMoreOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [mobilePropsOpen, setMobilePropsOpen] = useState(false);
+  const [fileViewerPromptOpen, setFileViewerPromptOpen] = useState(false);
   const [detailTab, setDetailTab] = useState("chat");
   const [handoffFocusSignal, setHandoffFocusSignal] = useState(0);
   const [pendingApprovalAction, setPendingApprovalAction] = useState<{
@@ -2859,6 +2875,11 @@ export function IssueDetail() {
         setDetailTab("chat");
         setPendingCommentComposerFocusKey((current) => current + 1);
       }
+      if (action === "open_file_viewer") {
+        event.preventDefault();
+        event.stopPropagation();
+        setFileViewerPromptOpen(true);
+      }
     };
 
     document.addEventListener("pointerdown", handlePointerDown, true);
@@ -2917,6 +2938,19 @@ export function IssueDetail() {
     if (detailTab !== "chat") return;
     commentComposerRef.current?.focus();
   }, [detailTab, pendingCommentComposerFocusKey]);
+
+  useEffect(() => {
+    const handleOpenFileViewer = () => {
+      setFileViewerPromptOpen(true);
+    };
+    window.addEventListener("paperclip:open-file-viewer", handleOpenFileViewer as EventListener);
+    return () => {
+      window.removeEventListener(
+        "paperclip:open-file-viewer",
+        handleOpenFileViewer as EventListener,
+      );
+    };
+  }, []);
 
   const promotedOutputAttachmentIds = useMemo(() => getPromotedOutputAttachmentIds(workProducts), [workProducts]);
   const attachmentList = useMemo(
@@ -3331,6 +3365,7 @@ export function IssueDetail() {
   );
 
   return (
+    <FileViewerProvider issueId={issue.id}>
     <div className="max-w-3xl space-y-6">
       {/* Parent chain breadcrumb */}
       {ancestors.length > 0 && (
@@ -3580,6 +3615,15 @@ export function IssueDetail() {
                 <Archive className="h-4 w-4" />
               </Button>
             )}
+            <Button
+              variant="ghost"
+              size="icon-xs"
+              onClick={() => setFileViewerPromptOpen(true)}
+              title="Open file... (g f)"
+              aria-label="Open file in this issue"
+            >
+              <FileCode2 className="h-4 w-4" />
+            </Button>
             <Button
               variant="ghost"
               size="icon-xs"
@@ -3904,7 +3948,34 @@ export function IssueDetail() {
         issue={issue}
         project={resolvedProject}
         onUpdate={(data) => updateIssue.mutate(data)}
+        onBrowseFiles={() => setFileViewerPromptOpen(true)}
+        onOpenFileByPath={() => setFileViewerPromptOpen(true)}
       />
+
+      {issue.workProducts && issue.workProducts.length > 0 && (() => {
+        const workProductsWithFileRefs = issue.workProducts
+          .map((product) => ({ product, fileRef: extractWorkspaceFileRefFromWorkProduct(product) }))
+          .filter(({ fileRef }) => fileRef !== null);
+
+        if (workProductsWithFileRefs.length === 0) return null;
+
+        return (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="text-sm font-medium text-muted-foreground">Artifacts</h3>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {workProductsWithFileRefs.map(({ product, fileRef }) => (
+                <ArtifactFileChip
+                  key={product.id}
+                  workspaceFileRef={fileRef!}
+                  title={product.title}
+                />
+              ))}
+            </div>
+          </div>
+        );
+      })()}
 
       <Separator />
 
@@ -4221,7 +4292,41 @@ export function IssueDetail() {
           </ScrollArea>
         </SheetContent>
       </Sheet>
+      <IssueFileViewer
+        issueId={issue.id}
+        promptOpen={fileViewerPromptOpen}
+        onPromptOpenChange={setFileViewerPromptOpen}
+      />
       <ScrollToBottom />
     </div>
+    </FileViewerProvider>
+  );
+}
+
+function IssueFileViewer({
+  issueId,
+  promptOpen,
+  onPromptOpenChange,
+}: {
+  issueId: string;
+  promptOpen: boolean;
+  onPromptOpenChange: (next: boolean) => void;
+}) {
+  const viewer = useRequiredFileViewer();
+  const open = viewer.state !== null || viewer.browse || promptOpen;
+  const showPromptWhenEmpty = (promptOpen || viewer.browse) && viewer.state === null;
+  return (
+    <FileViewerSheet
+      issueId={issueId}
+      open={open}
+      showPromptWhenEmpty={showPromptWhenEmpty}
+      onOpenChange={(next) => {
+        if (!next) {
+          onPromptOpenChange(false);
+          // Clears any file view and browse state from the URL.
+          viewer.close();
+        }
+      }}
+    />
   );
 }

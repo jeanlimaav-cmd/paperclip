@@ -87,6 +87,12 @@ export const queryKeys = {
     liveRuns: (issueId: string) => ["issues", "live-runs", issueId] as const,
     activeRun: (issueId: string) => ["issues", "active-run", issueId] as const,
     workProducts: (issueId: string) => ["issues", "work-products", issueId] as const,
+    fileResources: (issueId: string, options: { workspace?: string; mode?: string; q?: string | null; limit?: number } = {}) =>
+      ["issues", "file-resources", issueId, "list", options] as const,
+    fileResource: (issueId: string, path: string, workspace: string) =>
+      ["issues", "file-resources", issueId, "resolve", path, workspace] as const,
+    fileResourceContent: (issueId: string, path: string, workspace: string) =>
+      ["issues", "file-resources", issueId, "content", path, workspace] as const,
   },
   routines: {
     list: (companyId: string, filters?: { projectId?: string | null }) =>

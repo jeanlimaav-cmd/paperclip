@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { useNavigate } from "@/lib/router";
+import { useLocation, useNavigate } from "@/lib/router";
 import { useQuery } from "@tanstack/react-query";
 import { useCompany } from "../context/CompanyContext";
 import { useDialogActions } from "../context/DialogContext";
@@ -27,6 +27,7 @@ import {
   DollarSign,
   History,
   SquarePen,
+  FileCode2,
   Plus,
   Search,
 } from "lucide-react";
@@ -40,14 +41,22 @@ export function buildFullSearchPath(query: string) {
   return trimmed.length === 0 ? "/search" : `/search?q=${encodeURIComponent(trimmed)}`;
 }
 
+const ISSUE_DETAIL_PATH_RE = /\/issues\/[^/?#]+(?:$|\?|#|\/)/;
+
+function isOnIssueDetail(pathname: string): boolean {
+  return ISSUE_DETAIL_PATH_RE.test(pathname);
+}
+
 export function CommandPalette() {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const navigate = useNavigate();
+  const location = useLocation();
   const { selectedCompanyId } = useCompany();
   const { openNewIssue, openNewAgent } = useDialogActions();
   const { isMobile, setSidebarOpen } = useSidebar();
   const searchQuery = query.trim();
+  const onIssueDetail = isOnIssueDetail(location.pathname);
 
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
@@ -177,6 +186,18 @@ export function CommandPalette() {
             Create new task
             <span className="ml-auto text-xs text-muted-foreground">C</span>
           </CommandItem>
+          {onIssueDetail && (
+            <CommandItem
+              onSelect={() => {
+                setOpen(false);
+                window.dispatchEvent(new CustomEvent("paperclip:open-file-viewer"));
+              }}
+            >
+              <FileCode2 className="mr-2 h-4 w-4" />
+              Open file in this issue...
+              <span className="ml-auto text-xs text-muted-foreground">g f</span>
+            </CommandItem>
+          )}
           <CommandItem
             onSelect={() => {
               setOpen(false);
