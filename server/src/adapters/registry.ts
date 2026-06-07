@@ -142,6 +142,40 @@ import { buildExternalAdapters } from "./plugin-loader.js";
 import { getDisabledAdapterTypes } from "../services/adapter-plugin-store.js";
 import { processAdapter } from "./process/index.js";
 import { httpAdapter } from "./http/index.js";
+import {
+  executeCodexViaAppServer,
+  isRemoteCodexConfig,
+  testCodexAppServerEnvironment,
+} from "./codex-app-server.js";
+
+const codexAdapterConfigurationDoc = `${codexAgentConfigurationDoc}
+
+Remote App Server fields:
+- appServerUrl (string, optional): ws:// or wss:// Codex App Server endpoint. When set, Paperclip talks to the remote App Server over WebSocket instead of launching local \`codex exec\`.
+- appServerBearerToken (string, optional): bearer token sent as \`Authorization\` during the WebSocket handshake when remote auth is required.
+- appServerHeaders (object, optional): extra WebSocket handshake headers for remote auth.
+
+Remote mode notes:
+- \`dangerouslyBypassApprovalsAndSandbox=true\` is currently required to avoid interactive approval deadlocks.
+- \`search\`, \`command\`, and \`extraArgs\` are not currently applied in remote App Server mode.
+`;
+
+async function executeCodexAdapter(ctx: Parameters<typeof codexExecute>[0]) {
+  // Keep remote App Server support under `codex_local` so existing agent records,
+  // UI labels, and downstream logic continue to treat this as "the Codex adapter"
+  // with an alternate transport, not a separate product surface.
+  if (isRemoteCodexConfig(ctx.config)) {
+    return executeCodexViaAppServer(ctx);
+  }
+  return codexExecute(ctx);
+}
+
+async function testCodexAdapterEnvironment(ctx: Parameters<typeof codexTestEnvironment>[0]) {
+  if (isRemoteCodexConfig(ctx.config)) {
+    return testCodexAppServerEnvironment(ctx);
+  }
+  return codexTestEnvironment(ctx);
+}
 
 function readConfiguredCommand(config: Record<string, unknown>, fallback: string): string {
   const value = typeof config.command === "string" ? config.command.trim() : "";
@@ -290,8 +324,8 @@ const acpxLocalAdapter: ServerAdapterModule = {
 
 const codexLocalAdapter: ServerAdapterModule = {
   type: "codex_local",
-  execute: codexExecute,
-  testEnvironment: codexTestEnvironment,
+  execute: executeCodexAdapter,
+  testEnvironment: testCodexAdapterEnvironment,
   listSkills: listCodexSkills,
   syncSkills: syncCodexSkills,
   sessionCodec: codexSessionCodec,
@@ -305,7 +339,7 @@ const codexLocalAdapter: ServerAdapterModule = {
   instructionsPathKey: "instructionsFilePath",
   requiresMaterializedRuntimeSkills: false,
   getRuntimeCommandSpec: (config) => buildNpmRuntimeCommandSpec(config, "codex", "@openai/codex"),
-  agentConfigurationDoc: codexAgentConfigurationDoc,
+  agentConfigurationDoc: codexAdapterConfigurationDoc,
   getQuotaWindows: codexGetQuotaWindows,
 };
 
