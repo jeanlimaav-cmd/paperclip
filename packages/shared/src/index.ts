@@ -777,6 +777,7 @@ export {
   parseIssueReferenceHref,
   type IssueReferenceMatch,
 } from "./issue-references.js";
+export { stripMarkdownCode } from "./markdown-code.js";
 
 export {
   anchorSnapshotToSelector,
