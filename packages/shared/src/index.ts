@@ -617,6 +617,7 @@ export type {
   InstanceSchedulerHeartbeatAgent,
   LiveEvent,
   DashboardRunActivityDay,
+  DashboardTokenActivity,
   DashboardSummary,
   ActivityEvent,
   UserProfileActivitySummary,
