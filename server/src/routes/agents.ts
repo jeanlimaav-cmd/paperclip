@@ -1377,6 +1377,16 @@ export function agentRoutes(
     };
   }
 
+  function redactSecretsForAgentActor<
+    T extends NonNullable<Awaited<ReturnType<typeof svc.getById>>>,
+  >(agent: T): T {
+    return {
+      ...agent,
+      adapterConfig: (redactEventPayload(agent.adapterConfig) ?? {}) as T["adapterConfig"],
+      runtimeConfig: (redactEventPayload(agent.runtimeConfig) ?? {}) as T["runtimeConfig"],
+    };
+  }
+
   function redactAgentConfiguration(agent: Awaited<ReturnType<typeof svc.getById>>) {
     if (!agent) return null;
     return {
@@ -1712,11 +1722,15 @@ export function agentRoutes(
     }
     const result = await filterAgentsForActor(req, await svc.list(companyId));
     const canReadConfigs = await actorCanReadConfigurationsForCompany(req, companyId);
-    if (canReadConfigs) {
-      res.json(result);
+    if (!canReadConfigs) {
+      res.json(result.map((agent) => redactForRestrictedAgentView(agent)));
       return;
     }
-    res.json(result.map((agent) => redactForRestrictedAgentView(agent)));
+    if (req.actor.type === "agent") {
+      res.json(result.map((agent) => redactSecretsForAgentActor(agent)));
+      return;
+    }
+    res.json(result);
   });
 
   router.get("/instance/scheduler-heartbeats", async (req, res) => {
@@ -1927,6 +1941,10 @@ export function agentRoutes(
       : await actorCanReadConfigurationsForCompany(req, agent.companyId);
     if (!canReadSensitiveDetail) {
       res.json(await buildAgentDetail(agent, { restricted: true }));
+      return;
+    }
+    if (req.actor.type === "agent") {
+      res.json(await buildAgentDetail(redactSecretsForAgentActor(agent)));
       return;
     }
     res.json(await buildAgentDetail(agent));
