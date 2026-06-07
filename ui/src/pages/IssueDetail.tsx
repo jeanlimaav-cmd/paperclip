@@ -1767,6 +1767,9 @@ export function IssueDetail() {
         queryClient.invalidateQueries({ queryKey: queryKeys.sidebarBadges(selectedCompanyId) });
       }
     },
+    onError: (err) => {
+      pushToast({ title: "Failed to mark as read", body: err instanceof Error ? err.message : "Something went wrong.", tone: "error" });
+    },
   });
 
   const updateIssue = useMutation({
@@ -2044,6 +2047,9 @@ export function IssueDetail() {
     },
     onSettled: () => {
       setPendingApprovalAction(null);
+    },
+    onError: (err) => {
+      pushToast({ title: "Failed to update issue", body: err instanceof Error ? err.message : "Something went wrong.", tone: "error" });
     },
   });
 
