@@ -124,6 +124,7 @@ import {
 } from "../services/issue-execution-policy.js";
 import { parseIssueExecutionWorkspaceSettings } from "../services/execution-workspace-policy.js";
 import type { PluginWorkerManager } from "../services/plugin-worker-manager.js";
+import { assessOperationalCompletionEvidenceGate } from "../services/operational-completion-guard.js";
 import {
   buildPromotedSourceTrust,
   isLowTrustQuarantined,
@@ -4937,6 +4938,18 @@ export function issueRoutes(
       updateFields,
       actorType: req.actor.type,
     });
+
+    if (updateFields.status === "done" && existing.status !== "done") {
+      const recentComments = await svc.listComments(existing.id, { order: "desc", limit: 12 });
+      const completionEvidenceGate = assessOperationalCompletionEvidenceGate({
+        issue: existing,
+        recentComments,
+        completionCommentBody: commentBody,
+      });
+      if (!completionEvidenceGate.allowed) {
+        throw unprocessable(completionEvidenceGate.reason);
+      }
+    }
 
     const nextAssigneeAgentId =
       updateFields.assigneeAgentId === undefined ? existing.assigneeAgentId : (updateFields.assigneeAgentId as string | null);
