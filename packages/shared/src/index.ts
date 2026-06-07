@@ -976,6 +976,7 @@ export {
   issueExecutionPolicySchema,
   issueExecutionStateSchema,
   resolveIssueRecoveryActionSchema,
+  resolveRecoveryActionByIdSchema,
   issueReviewRequestSchema,
   issueExecutionWorkspaceSettingsSchema,
   checkoutIssueSchema,
