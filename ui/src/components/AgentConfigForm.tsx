@@ -911,6 +911,8 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
             <AdapterEnvironmentResult result={testEnvironment.data} />
           )}
 
+          {!isLocal && <uiAdapter.ConfigFields {...adapterFieldProps} />}
+
           {/* Working directory */}
           {showLegacyWorkingDirectoryField && (
             <Field label="Working directory (deprecated)" hint={help.cwd}>
@@ -936,7 +938,7 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
             </Field>
           )}
 
-          {/* Adapter-specific fields are rendered inside Permissions & Configuration */}
+          {/* Local adapter-specific fields are rendered inside Permissions & Configuration. */}
         </div>
 
       </div>
