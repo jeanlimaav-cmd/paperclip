@@ -132,6 +132,7 @@ import {
   listSkills as hermesListSkills,
   syncSkills as hermesSyncSkills,
   detectModel as detectModelFromHermes,
+  getConfigSchema as getHermesConfigSchema,
 } from "hermes-paperclip-adapter/server";
 import {
   agentConfigurationDoc as hermesAgentConfigurationDoc,
@@ -497,6 +498,7 @@ const hermesLocalAdapter: ServerAdapterModule = {
   requiresMaterializedRuntimeSkills: false,
   agentConfigurationDoc: hermesAgentConfigurationDoc,
   detectModel: () => detectModelFromHermes(),
+  getConfigSchema: getHermesConfigSchema,
 };
 
 const adaptersByType = new Map<string, ServerAdapterModule>();
