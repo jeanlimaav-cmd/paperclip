@@ -5581,10 +5581,12 @@ export function issueService(db: Db) {
         }
       }
 
+      // Release clears checkout/assignee locks; only in_progress work re-queues to todo.
+      const releaseStatus = existing.status === "in_progress" ? "todo" : existing.status;
       const updated = await db
         .update(issues)
         .set({
-          status: "todo",
+          status: releaseStatus,
           assigneeAgentId: null,
           checkoutRunId: null,
           executionRunId: null,
